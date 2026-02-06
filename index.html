@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Analytics Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="text/javascript" src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap'); 
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+
+    /* --- FIX RESPONSIVE QR --- */
+    /* Container pembungkus harus menahan isi */
+    #canvas {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden; /* Potong kalau ada yang lewat */
+    }
+
+    /* Paksa Canvas (Gambar QR) agar nurut sama lebar container */
+    #canvas canvas {
+        width: 100% !important;     /* Lebar ikut container */
+        max-width: 280px !important; /* Maksimal 280px di layar */
+        height: auto !important;    /* Tinggi menyesuaikan */
+        border-radius: 12px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+</style>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen">
+
+    <div id="redirect-screen" class="hidden fixed inset-0 bg-slate-900 z-50 flex flex-col items-center justify-center p-8 text-center">
+        <div class="w-16 h-16 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+        <h2 class="text-2xl font-bold text-white mb-2">Mengalihkan...</h2>
+        <p class="text-slate-400">Mencatat data kunjungan Anda.</p>
+    </div>
+
+    <div id="main-app" class="p-4 md:p-8 max-w-6xl mx-auto">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden min-h-[80vh] flex flex-col">
+            
+            <div class="bg-slate-900 border-b border-slate-800 p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+                <h1 class="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-500">
+                    QR Smart Analytics
+                </h1>
+                <div class="flex bg-slate-800 p-1 rounded-xl">
+                    <button onclick="switchTab('gen')" class="px-6 py-2 rounded-lg text-sm font-semibold bg-teal-500 text-slate-900 transition hover:shadow-[0_0_20px_rgba(20,184,166,0.5)]">Buat QR</button>
+                    <button onclick="switchTab('stats')" class="px-6 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:text-white transition">Data Statistik</button>
+                </div>
+            </div>
+
+            <div id="tab-gen" class="p-8 block">
+                <div class="flex flex-col lg:flex-row gap-8">
+                    <div class="lg:w-1/3 space-y-6">
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase">Link Tujuan</label>
+                            <input type="text" id="target-url" placeholder="https://..." class="w-full mt-2 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-teal-500 outline-none">
+                        </div>
+                        <button onclick="generateLink()" id="btn-create" class="w-full bg-gradient-to-r from-teal-500 to-blue-500 text-white font-bold py-4 rounded-xl shadow-lg transition transform active:scale-95">
+                            Generate & Tracking
+                        </button>
+                        <div id="loading-create" class="hidden text-center text-teal-400 text-sm animate-pulse">Sedang menghubungi server Google...</div>
+                    </div>
+                    
+                    <div class="lg:w-2/3 flex flex-col items-center justify-center bg-slate-950 rounded-xl border border-slate-800 p-8">
+                        <div id="canvas" class="bg-white p-4 rounded-xl shadow-lg"></div>
+                        <p class="text-xs text-slate-500 mt-4">Scan untuk test (Data akan masuk ke Google Sheet)</p>
+                        <button onclick="downloadQR()" class="mt-4 px-4 py-2 bg-slate-800 text-teal-400 rounded-lg text-sm border border-slate-700 hover:bg-slate-700">Download PNG</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-stats" class="p-8 hidden">
+                <button onclick="fetchStats()" class="mb-6 text-xs bg-teal-500/10 text-teal-400 px-4 py-2 rounded-full border border-teal-500/20 hover:bg-teal-500/20 transition">
+                    ↻ Refresh Data dari Google Sheet
+                </button>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <div class="lg:col-span-2 bg-slate-800 p-6 rounded-2xl border border-slate-700">
+                         <h3 class="text-lg font-bold text-white mb-4">Grafik Popularitas</h3>
+                        <div class="h-64"><canvas id="statsChart"></canvas></div>
+                    </div>
+                    <div class="bg-gradient-to-br from-teal-500 to-blue-600 p-6 rounded-2xl text-white flex flex-col justify-center items-center shadow-lg">
+                        <p class="text-sm opacity-80">Total Semua Klik</p>
+                        <h2 class="text-5xl font-bold mt-2" id="total-clicks">0</h2>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-slate-700">
+                    <table class="w-full text-left bg-slate-800">
+                        <thead class="bg-slate-700 text-slate-400 text-xs uppercase">
+                            <tr>
+                                <th class="p-4">Tanggal</th>
+                                <th class="p-4">Link Asli</th>
+                                <th class="p-4 text-center">Total Scan</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stats-body" class="text-sm divide-y divide-slate-700 text-slate-300">
+                            <tr><td colspan="3" class="p-4 text-center text-slate-500">Klik Refresh untuk ambil data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // KONFIGURASI PENTING (PASTE URL DISINI)
+        // ==========================================
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbz_a6p8MhmjwjjMTGSf_go0V8QK1mb1x4kGNSSddSCpVW5Peja8VPFFFq9HLNMBqFYd/exec"; 
+        // Contoh: "https://script.google.com/macros/s/AKfycbx.../exec"
+
+        
+        const qrCode = new QRCodeStyling({
+            width: 1000, height: 1000,
+            dotsOptions: { color: "#14b8a6", type: "rounded" },
+            backgroundOptions: { color: "#ffffff" },
+            cornersSquareOptions: { type: "extra-rounded", color: "#0f172a" }
+        });
+
+        // --- 1. LOGIC UTAMA: APAKAH INI PENGUNJUNG YANG SCAN? ---
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const redirectId = urlParams.get('r'); // Cek apakah ada parameter ?r=xxx
+
+            if (redirectId) {
+                // Mode Redirector
+                document.getElementById('main-app').style.display = 'none';
+                document.getElementById('redirect-screen').style.display = 'flex';
+                handleRedirect(redirectId);
+            } else {
+                // Mode Dashboard
+                qrCode.append(document.getElementById("canvas"));
+                adjustCanvas();
+            }
+        };
+
+        // Ganti function adjustCanvas() yang lama dengan ini:
+
+        function adjustCanvas() {
+            // Kita beri jeda 100ms biar library selesai menggambar dulu
+            setTimeout(() => {
+                const container = document.getElementById("canvas");
+                const canvasEl = container.querySelector("canvas");
+                
+                if(canvasEl) {
+                    // Kita paksa style-nya lewat JavaScript juga (Double Protection)
+                    canvasEl.style.width = "100%";
+                    canvasEl.style.maxWidth = "280px"; // Ukuran preview di layar HP/Laptop
+                    canvasEl.style.height = "auto";
+                    canvasEl.style.display = "block";
+                }
+            }, 100);
+        }
+
+        // --- 2. FUNGSI HANDLE REDIRECT ---
+        async function handleRedirect(id) {
+            try {
+                // Panggil Google Script untuk catat klik
+                const response = await fetch(`${GAS_URL}?action=track&id=${id}`);
+                const data = await response.json();
+
+                if (data.status === 'found') {
+                    window.location.replace(data.url); // Pindah ke link asli
+                } else {
+                    alert("Link tidak ditemukan atau kadaluarsa.");
+                    document.getElementById('redirect-screen').style.display = 'none';
+                    document.getElementById('main-app').style.display = 'block';
+                }
+            } catch (error) {
+                alert("Gagal koneksi ke database. Cek internet.");
+            }
+        }
+
+        // --- 3. FUNGSI GENERATE LINK BARU ---
+        async function generateLink() {
+            const url = document.getElementById('target-url').value;
+            if (!url) return alert("Isi link dulu bosku!");
+            if (!GAS_URL.includes("script.google.com")) return alert("URL Script belum dipasang di codingan!");
+
+            document.getElementById('btn-create').disabled = true;
+            document.getElementById('loading-create').style.display = 'block';
+
+            try {
+                // Kirim data ke Google Sheet via API
+                const response = await fetch(`${GAS_URL}?action=create&url=${encodeURIComponent(url)}`);
+                const data = await response.json(); // Seharusnya return JSON {id: "xyz"}
+
+                // Buat Link Perantara GitHub Pages
+                // Format: https://username.github.io/repo/?r=ID_UNIK
+                const currentPage = window.location.href.split('?')[0]; 
+                const trackingUrl = `${currentPage}?r=${data.id}`;
+
+                // Generate QR Code untuk Link Perantara
+                qrCode.update({ data: trackingUrl });
+                alert("Berhasil! QR Code ini sudah siap dilacak.");
+
+            } catch (e) {
+                alert("Gagal menyimpan data. Pastikan Web App URL benar.");
+                console.error(e);
+            } finally {
+                document.getElementById('btn-create').disabled = false;
+                document.getElementById('loading-create').style.display = 'none';
+            }
+        }
+
+        // --- 4. FUNGSI STATISTIK (DASHBOARD) ---
+        async function fetchStats() {
+            const tbody = document.getElementById('stats-body');
+            tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center animate-pulse">Loading data dari Google Sheet...</td></tr>';
+
+            try {
+                const response = await fetch(`${GAS_URL}?action=stats`);
+                const data = await response.json();
+                
+                tbody.innerHTML = "";
+                let total = 0;
+                let labels = [];
+                let clicks = [];
+
+                data.forEach(row => {
+                    total += parseInt(row.clicks);
+                    labels.push(row.id); // Atau row.date kalau mau per tanggal
+                    clicks.push(row.clicks);
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-700/50 transition border-b border-slate-700">
+                            <td class="p-4 text-slate-400 text-xs">${row.date}</td>
+                            <td class="p-4 truncate max-w-xs text-teal-400 font-mono">${row.url}</td>
+                            <td class="p-4 text-center font-bold text-white">${row.clicks}</td>
+                        </tr>
+                    `;
+                });
+
+                document.getElementById('total-clicks').innerText = total;
+                updateChart(labels, clicks);
+
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-red-400">Gagal mengambil data.</td></tr>';
+            }
+        }
+
+        let myChart = null;
+        function updateChart(labels, data) {
+            const ctx = document.getElementById('statsChart').getContext('2d');
+            if (myChart) myChart.destroy();
+
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Jumlah Scan',
+                        data: data,
+                        backgroundColor: '#14b8a6',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        y: { beginAtZero: true, grid: { color: '#334155' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function downloadQR() { qrCode.download({ name: "QR_Smart_Tracker", extension: "png" }); }
+        
+        function switchTab(tab) {
+            document.getElementById('tab-gen').style.display = tab === 'gen' ? 'block' : 'none';
+            document.getElementById('tab-stats').style.display = tab === 'stats' ? 'block' : 'none';
+        }
+    </script>
+</body>
+</html>
