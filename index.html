@@ -42,14 +42,14 @@
             <h3 class="text-xl font-bold text-white mb-1" id="modal-title">Link</h3>
             <p class="text-xs text-teal-400 font-mono mb-6 truncate" id="modal-url">...</p>
             <div class="bg-white rounded-xl p-4 shadow-inner mb-6 flex justify-center"><div id="modal-canvas"></div></div>
-            <button onclick="downloadModalQR()" class="w-full bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold py-3 rounded-xl">Download QR</button>
+            <button onclick="downloadModalQR()" class="w-full bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold py-3 rounded-xl shadow-lg">Download QR</button>
         </div>
     </div>
 
     <div id="redirect-screen" class="hidden fixed inset-0 bg-slate-900 z-50 flex flex-col items-center justify-center text-center">
         <div class="w-16 h-16 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mb-6"></div>
         <h2 class="text-2xl font-bold text-white mt-4">Mengalihkan...</h2>
-        <p class="text-slate-400 text-sm mt-2">Mencatat kunjungan Anda</p>
+        <p class="text-slate-400 text-sm mt-2">Mencatat scan Anda</p>
     </div>
 
     <div id="main-app" class="p-4 md:p-8 max-w-7xl mx-auto">
@@ -80,7 +80,7 @@
                         <div class="bg-slate-800/50 p-5 rounded-xl border border-slate-700/50">
                             <h3 class="text-sm font-bold text-blue-400 mb-4">Desain</h3>
                             <div class="mb-4">
-                                <label class="text-xs font-bold text-slate-400 uppercase flex justify-between">Upload Logo <span onclick="removeLogo()" class="text-[10px] text-red-400 cursor-pointer hover:text-red-300">Hapus X</span></label>
+                                <label class="text-xs font-bold text-slate-400 uppercase flex justify-between">Masukan Logo (Opsional) <span onclick="removeLogo()" class="text-[10px] text-red-400 cursor-pointer hover:text-red-300">Reset</span></label>
                                 <input type="file" id="logo-input" accept="image/*" class="w-full mt-1 text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:bg-slate-700 file:text-blue-400 cursor-pointer bg-slate-900 border border-slate-700" onchange="handleLogo(event)">
                             </div>
                             <div class="grid grid-cols-2 gap-4">
@@ -101,7 +101,7 @@
                         <div class="absolute inset-0 opacity-10 bg-[radial-gradient(#2dd4bf_1px,transparent_1px)] [background-size:20px_20px]"></div>
                         <div class="relative z-10 flex flex-col items-center">
                             <div class="bg-white/5 p-6 rounded-2xl backdrop-blur-sm border border-white/10 shadow-2xl"><div id="canvas" class="bg-white p-4 rounded-xl shadow-inner"></div></div>
-                            <p class="text-xs text-slate-500 mt-6 text-center">Preview QR Code (Logo tidak disimpan di server)</p>
+                            <p class="text-xs text-slate-500 mt-6 text-center">Preview QR Code</p>
                             <button onclick="downloadQR()" class="mt-4 px-6 py-2 bg-slate-800 text-teal-400 rounded-lg text-sm border border-slate-700 hover:bg-slate-700 transition">Download QR Code</button>
                         </div>
                     </div>
@@ -119,14 +119,14 @@
                         <div class="h-64"><canvas id="statsChart"></canvas></div>
                     </div>
                     <div class="bg-gradient-to-br from-teal-500 to-blue-600 p-6 rounded-2xl text-white flex flex-col justify-center items-center shadow-lg">
-                        <p class="text-sm opacity-80">Total Klik</p>
+                        <p class="text-sm opacity-80">Total Scan</p>
                         <h2 class="text-5xl font-bold mt-2" id="total-clicks">0</h2>
                     </div>
                 </div>
                 <div class="overflow-hidden rounded-xl border border-slate-700 shadow-xl">
                     <table class="w-full text-left bg-slate-800">
                         <thead class="bg-slate-700/80 text-slate-400 text-xs uppercase backdrop-blur">
-                            <tr><th class="p-4">Tanggal</th><th class="p-4">Detail Link</th><th class="p-4 text-center">Klik</th><th class="p-4 text-center">Aksi</th></tr>
+                            <tr><th class="p-4">Tanggal</th><th class="p-4">Detail Link</th><th class="p-4 text-center">Jml Scan</th><th class="p-4 text-center">Aksi</th></tr>
                         </thead>
                         <tbody id="stats-body" class="text-sm divide-y divide-slate-700 text-slate-300">
                             <tr><td colspan="4" class="p-8 text-center text-slate-500">Memuat data...</td></tr>
@@ -226,8 +226,7 @@
             document.getElementById('loading-msg').classList.remove('hidden');
 
             try {
-                // Gunakan GET request (Paling Stabil & Anti Error)
-                // Logo tidak dikirim ke server, tapi tetap ada di QR saat didownload
+                // Gunakan GET request
                 const finalUrl = `${GAS_URL}?action=create&url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`;
                 const response = await fetch(finalUrl);
                 const data = await response.json();
@@ -236,7 +235,6 @@
                     let baseUrl = (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") ? window.location.href.split('?')[0] : GITHUB_PAGES_URL;
                     const trackingUrl = `${baseUrl}?r=${data.id}`;
 
-                    // Update QR Final dengan Link Tracking + Logo Lokal
                     const colorDots = document.getElementById('color-dots').value;
                     const colorBg = document.getElementById('color-bg').value;
                     const dotType = document.getElementById('dot-type').value;
@@ -250,7 +248,7 @@
                         cornersSquareOptions: { color: colorDots, type: cornerType }
                     });
 
-                    showToast("Berhasil!", `Link "${name}" telah aktif. Silakan download.`, "success");
+                    showToast("Berhasil!", `Link "${name}" telah aktif.`, "success");
                 } else {
                     showToast("Gagal", data.message, "error");
                 }
@@ -280,7 +278,6 @@
             } catch (e) { showToast("Error", "Gagal menghapus.", "error"); }
         }
 
-        // --- VIEWER MODAL ---
         function viewQR(id, name) {
             let baseUrl = (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") ? window.location.href.split('?')[0] : GITHUB_PAGES_URL;
             const fullUrl = `${baseUrl}?r=${id}`;
@@ -297,7 +294,7 @@
         function downloadModalQR() { modalQrCode.download({ name: "QR_Code", extension: "png" }); }
         function downloadQR() { qrCode.download({ name: "QR_Code_Custom", extension: "png" }); }
 
-        // --- STATS ---
+        // --- STATS & CHART ---
         async function fetchStats(isBackground = false) {
             const tbody = document.getElementById('stats-body');
             const btn = document.getElementById('btn-refresh');
@@ -330,15 +327,50 @@
         let myChart = null;
         function updateChart(labels, data) {
             const ctx = document.getElementById('statsChart').getContext('2d');
-            let gradient = ctx.createLinearGradient(0, 0, 0, 300);
-            gradient.addColorStop(0, 'rgba(45, 212, 191, 0.5)'); gradient.addColorStop(1, 'rgba(45, 212, 191, 0.0)');
+            
+            // --- UPDATED CHART DESIGN (NEON GLOW) ---
+            let gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(45, 212, 191, 0.5)'); // Teal Glow
+            gradient.addColorStop(1, 'rgba(45, 212, 191, 0.0)'); // Transparan
             
             if(myChart) { myChart.data.labels = labels; myChart.data.datasets[0].data = data; myChart.update(); }
             else {
                 myChart = new Chart(ctx, {
                     type: 'line',
-                    data: { labels: labels, datasets: [{ label: 'Klik', data: data, borderColor: '#2dd4bf', backgroundColor: gradient, fill: true, tension: 0.4, pointBackgroundColor:'#0f172a', borderWidth:3 }] },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display:false} }, scales: { y: { beginAtZero: true, grid: { color:'#334155', borderDash:[5,5] } }, x: { grid: { display:false } } } }
+                    data: { 
+                        labels: labels, 
+                        datasets: [{ 
+                            label: 'Jumlah Scan', 
+                            data: data, 
+                            borderColor: '#2dd4bf', 
+                            backgroundColor: gradient, 
+                            fill: true, 
+                            tension: 0.4, // Garis melengkung halus
+                            borderWidth: 3,
+                            pointBackgroundColor: '#0f172a',
+                            pointBorderColor: '#2dd4bf',
+                            pointBorderWidth: 2,
+                            pointRadius: 4, // Titik tetap ada tapi kecil rapi
+                            pointHoverRadius: 7
+                        }] 
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        plugins: { legend: {display:false} }, 
+                        scales: { 
+                            y: { 
+                                beginAtZero: true, 
+                                grid: { color:'rgba(51, 65, 85, 0.2)', borderDash:[5,5] }, // Grid lebih halus
+                                ticks: { 
+                                    color: '#94a3b8', 
+                                    precision: 0, // HILANGKAN ANGKA KOMA
+                                    maxTicksLimit: 6 // BATASI JUMLAH ANGKA Y-AXIS AGAR TIDAK PENUH
+                                } 
+                            }, 
+                            x: { grid: { display:false }, ticks: { color: '#94a3b8' } } 
+                        } 
+                    } 
                 });
             }
         }
